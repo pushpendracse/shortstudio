@@ -1,0 +1,1292 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Shorts Studio — Control Room</title>
+<style>
+:root {
+  --bg: #0b0c10;
+  --panel: #12141a;
+  --panel2: #1a1d26;
+  --border: #252838;
+  --accent: #f5c518;
+  --red: #e63950;
+  --blue: #1a8cff;
+  --cyan: #00d4ff;
+  --green: #00e676;
+  --text: #e8eaf2;
+  --muted: #5a5f7a;
+  --radius: 14px;
+}
+
+/* THEMES */
+body.theme-cricket { --accent:#4caf50; --red:#ff5722; --blue:#2196f3; }
+body.theme-bollywood { --accent:#ff4081; --red:#e91e63; --blue:#9c27b0; }
+body.theme-neon { --accent:#39ff14; --red:#ff073a; --blue:#00f3ff; }
+body.theme-golden { --accent:#ffd700; --red:#ff6b00; --blue:#c9a800; }
+body.theme-study { --accent:#64b5f6; --red:#90caf9; --blue:#42a5f5; }
+body.theme-meme { --accent:#ff9800; --red:#f44336; --blue:#9c27b0; }
+
+* { box-sizing:border-box; margin:0; padding:0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  display: flex;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── LEFT: PREVIEW ── */
+.preview-side {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  gap: 14px;
+  min-width: 0;
+  background: #070809;
+  position: relative;
+}
+
+.preview-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.phone-frame {
+  position: relative;
+  width: min(260px, 42vw);
+  aspect-ratio: 9/16;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 2px var(--border),
+    0 0 40px rgba(0,0,0,0.8),
+    0 0 0 4px #0b0c10;
+}
+
+/* animated border */
+.phone-frame::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 24px;
+  background: conic-gradient(from var(--angle,0deg), var(--accent), var(--blue), var(--cyan), var(--accent));
+  z-index: 0;
+  animation: spin 3s linear infinite;
+}
+@property --angle { syntax:'<angle>'; initial-value:0deg; inherits:false; }
+@keyframes spin { to { --angle: 360deg; } }
+
+.phone-inner {
+  position: absolute;
+  inset: 3px;
+  border-radius: 20px;
+  overflow: hidden;
+  z-index: 1;
+  background: #000;
+}
+
+#previewCanvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.rec-indicator {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: 1px;
+}
+.rec-indicator.show { display: flex; }
+.rec-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--red);
+  animation: blink 1s infinite;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.timer-display {
+  font-size: 28px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── RIGHT: CONTROL ROOM ── */
+.control-room {
+  width: 340px;
+  min-width: 300px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.cr-header {
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 10;
+}
+.cr-bar {
+  width: 4px;
+  height: 28px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+.cr-title {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.section-label {
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* inputs */
+.inp {
+  width: 100%;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px 13px;
+  outline: none;
+  transition: border-color .2s;
+}
+.inp:focus { border-color: var(--accent); }
+textarea.inp { resize: vertical; min-height: 80px; line-height: 1.5; }
+
+/* toolbar */
+.tbar { display: flex; gap: 6px; flex-wrap: wrap; }
+.tbtn {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 5px 11px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: inherit;
+}
+.tbtn:hover { background: var(--accent); border-color: var(--accent); color:#000; }
+.tbtn.on { background: var(--accent); border-color: var(--accent); color:#000; }
+.abtn {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 5px 10px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.abtn:hover,.abtn.on { background: var(--cyan); border-color: var(--cyan); color:#000; }
+
+/* range */
+.range-row { display: flex; flex-direction: column; gap: 4px; }
+.range-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+input[type=range] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+/* color swatches */
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.sw {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .15s, border-color .15s;
+  flex-shrink: 0;
+}
+.sw:hover { transform: scale(1.2); }
+.sw.on { border-color: #fff; transform: scale(1.2); }
+input[type=color] {
+  width: 24px; height: 24px;
+  padding: 0; border: 2px solid var(--border);
+  border-radius: 50%; cursor: pointer;
+  background: none; outline: none;
+}
+
+/* bg presets */
+.bgs { display: flex; flex-wrap: wrap; gap: 6px; }
+.bgp {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: transform .15s, border-color .15s;
+}
+.bgp:hover { transform: scale(1.1); }
+.bgp.on { border-color: var(--accent); transform: scale(1.1); }
+
+/* toggles */
+.tog-row { display: flex; gap: 9px; align-items: center; }
+.tog { position: relative; width: 36px; height: 19px; flex-shrink: 0; }
+.tog input { opacity: 0; width: 0; height: 0; }
+.tslide {
+  position: absolute; inset: 0;
+  background: var(--border);
+  border-radius: 19px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.tslide:before {
+  content: '';
+  position: absolute;
+  width: 13px; height: 13px;
+  left: 3px; top: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform .2s;
+}
+.tog input:checked + .tslide { background: var(--accent); }
+.tog input:checked + .tslide:before { transform: translateX(17px); }
+
+/* file input */
+.file-row { display: flex; gap: 8px; align-items: center; }
+.file-btn {
+  background: var(--blue);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: inherit;
+  transition: opacity .2s;
+}
+.file-btn:hover { opacity: .85; }
+.file-name { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* theme grid */
+.theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.theme-btn {
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 9px 8px;
+  cursor: pointer;
+  transition: all .15s;
+  font-family: inherit;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+.theme-btn:hover { border-color: var(--accent); }
+.theme-btn.on { background: var(--accent); border-color: var(--accent); color:#000; }
+
+/* MASTER STUDIO */
+.master-studio {
+  margin: 16px 20px;
+  background: linear-gradient(135deg, #1a1d28, #12141e);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.ms-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.ms-title {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.ms-icons { display: flex; gap: 8px; }
+.ms-icon {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--panel2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .15s;
+}
+.ms-icon:hover { background: var(--accent); border-color: var(--accent); }
+
+.start-btn {
+  width: 100%;
+  padding: 14px;
+  background: linear-gradient(135deg, var(--accent), #d4a800);
+  border: none;
+  border-radius: 12px;
+  color: #000;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: opacity .2s, transform .1s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.start-btn:hover { opacity: .9; transform: scale(.99); }
+.start-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.stop-btn {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  border: 2px solid var(--red);
+  border-radius: 12px;
+  color: var(--red);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all .2s;
+  font-family: inherit;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.stop-btn.show { display: flex; }
+.stop-btn:hover { background: var(--red); color: #fff; }
+
+.dl-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  font-family: inherit;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all .2s;
+}
+.dl-btn.show { display: flex; }
+.dl-btn:hover { background: var(--green); border-color: var(--green); color:#000; }
+
+/* progress */
+.prog-wrap { display: none; flex-direction: column; gap: 4px; }
+.prog-wrap.show { display: flex; }
+.prog-bar { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.prog-fill { height: 100%; background: linear-gradient(90deg, var(--red), var(--accent)); border-radius: 2px; transition: width .2s; }
+.prog-txt { font-size: 10px; color: var(--muted); text-align: center; }
+
+/* select */
+select.inp { cursor: pointer; }
+
+/* responsive */
+@media (max-width: 700px) {
+  body { flex-direction: column; }
+  .preview-side { min-height: 55vw; padding: 14px; }
+  .phone-frame { width: min(180px, 55vw); }
+  .control-room { width: 100%; height: auto; border-left: none; border-top: 1px solid var(--border); }
+}
+</style>
+</head>
+<body class="theme-classic">
+
+<!-- LEFT: PREVIEW -->
+<div class="preview-side">
+  <div class="preview-label">BACKGROUND</div>
+  <div class="phone-frame">
+    <div class="phone-inner">
+      <canvas id="previewCanvas"></canvas>
+    </div>
+  </div>
+  <div class="rec-indicator" id="recInd">
+    <div class="rec-dot"></div> REC
+  </div>
+  <div class="timer-display" id="timerDisplay">00:00</div>
+</div>
+
+<!-- RIGHT: CONTROL ROOM -->
+<div class="control-room">
+  <div class="cr-header">
+    <div class="cr-bar"></div>
+    <div class="cr-title">Control Room</div>
+  </div>
+
+  <!-- TEXT -->
+  <div class="section">
+    <div class="section-label">Script / Text</div>
+    <div class="tbar">
+      <button class="tbtn" id="bB">B</button>
+      <button class="tbtn" id="bI" style="font-style:italic">I</button>
+      <button class="tbtn" id="bU" style="text-decoration:underline">U</button>
+      <span style="width:1px;background:var(--border)"></span>
+      <button class="abtn on" id="aL">L</button>
+      <button class="abtn" id="aC">C</button>
+      <button class="abtn" id="aR">R</button>
+    </div>
+    <input class="inp" id="title" type="text" placeholder="Episode Title / Heading">
+    <textarea class="inp" id="script" placeholder="Script... ya koi bhi text likhein&#10;Hindi aur English dono chalte hain!"></textarea>
+  </div>
+
+  <!-- FONT -->
+  <div class="section">
+    <div class="section-label">Font & Typography</div>
+    <select class="inp" id="fnt">
+      <option value="Arial">Arial</option>
+      <option value="Impact">Impact (Heavy)</option>
+      <option value="Georgia">Georgia (Elegant)</option>
+      <option value="Verdana">Verdana</option>
+      <option value="'Courier New'">Courier New</option>
+      <option value="'Times New Roman'">Times New Roman</option>
+    </select>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Title Size</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="tsV" value="90" min="30" max="220" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+          <span style="font-size:11px;color:var(--muted);">px</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Script Size</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="ssV" value="52" min="20" max="150" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+          <span style="font-size:11px;color:var(--muted);">px</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Line Height</span>
+        <input type="number" id="lhV" value="1.35" min="0.8" max="2.5" step="0.05" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+      </div>
+    </div>
+    <!-- hidden range inputs to keep JS wireRange working -->
+    <input type="range" id="titleSize" min="30" max="220" value="90" style="display:none">
+    <input type="range" id="scriptSize" min="20" max="150" value="52" style="display:none">
+    <input type="range" id="lh" min="0.8" max="2.5" step="0.05" value="1.35" style="display:none">
+  </div>
+
+  <!-- TITLE COLOR -->
+  <div class="section">
+    <div class="section-label">Title Color</div>
+    <div class="swatches" id="tcSw">
+      <div class="sw on" style="background:#fff" data-c="#ffffff"></div>
+      <div class="sw" style="background:#f5c518" data-c="#f5c518"></div>
+      <div class="sw" style="background:#ff3c6e" data-c="#ff3c6e"></div>
+      <div class="sw" style="background:#00d4ff" data-c="#00d4ff"></div>
+      <div class="sw" style="background:#00ff88" data-c="#00ff88"></div>
+      <div class="sw" style="background:#ff8c00" data-c="#ff8c00"></div>
+      <div class="sw" style="background:#ff44ff" data-c="#ff44ff"></div>
+      <div class="sw" style="background:#000" data-c="#000000"></div>
+      <input type="color" id="tcCol" value="#ffffff">
+    </div>
+    <div class="section-label" style="margin-top:4px">Script Color</div>
+    <div class="swatches" id="scSw">
+      <div class="sw on" style="background:#e0e0ff" data-c="#e0e0ff"></div>
+      <div class="sw" style="background:#fff" data-c="#ffffff"></div>
+      <div class="sw" style="background:#ffd700" data-c="#ffd700"></div>
+      <div class="sw" style="background:#aaffcc" data-c="#aaffcc"></div>
+      <div class="sw" style="background:#ffb3c1" data-c="#ffb3c1"></div>
+      <div class="sw" style="background:#000" data-c="#000000"></div>
+      <input type="color" id="scCol" value="#e0e0ff">
+    </div>
+  </div>
+
+  <!-- POSITION -->
+  <div class="section">
+    <div class="section-label">Layout & Position</div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Title Position</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="tpV" value="22" min="5" max="90" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+          <span style="font-size:11px;color:var(--muted);">%</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Script Position</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="spV" value="58" min="10" max="95" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+          <span style="font-size:11px;color:var(--muted);">%</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Side Padding</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="hpV" value="70" min="0" max="250" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+          <span style="font-size:11px;color:var(--muted);">px</span>
+        </div>
+      </div>
+    </div>
+    <!-- hidden range inputs to keep JS wireRange working -->
+    <input type="range" id="titlePos" min="5" max="90" value="22" style="display:none">
+    <input type="range" id="scriptPos" min="10" max="95" value="58" style="display:none">
+    <input type="range" id="hp" min="0" max="250" value="70" style="display:none">
+  </div>
+
+  <!-- EFFECTS -->
+  <div class="section">
+    <div class="section-label">Effects</div>
+    <div class="tog-row">
+      <label class="tog"><input type="checkbox" id="shad" checked><span class="tslide"></span></label>
+      <span style="font-size:12px">Text Shadow</span>
+    </div>
+    <div class="tog-row">
+      <label class="tog"><input type="checkbox" id="strk"><span class="tslide"></span></label>
+      <span style="font-size:12px">Text Outline</span>
+    </div>
+    <div class="tog-row">
+      <label class="tog"><input type="checkbox" id="bbox"><span class="tslide"></span></label>
+      <span style="font-size:12px">Script Box Background</span>
+    </div>
+    <div class="tog-row">
+      <label class="tog"><input type="checkbox" id="titleBox"><span class="tslide"></span></label>
+      <span style="font-size:12px">Title Highlight</span>
+    </div>
+  </div>
+
+  <!-- BACKGROUND GALLERY -->
+  <div class="section">
+    <div class="section-label">Background Gallery</div>
+    <div class="bgs" id="bgps">
+      <div class="bgp on" data-i="0" style="background:linear-gradient(160deg,#0a0a1a,#1a0535)"></div>
+      <div class="bgp" data-i="1" style="background:linear-gradient(160deg,#ff3c6e,#8000ff)"></div>
+      <div class="bgp" data-i="2" style="background:linear-gradient(160deg,#00c6ff,#0050ff)"></div>
+      <div class="bgp" data-i="3" style="background:linear-gradient(160deg,#f7971e,#ffd200)"></div>
+      <div class="bgp" data-i="4" style="background:linear-gradient(160deg,#11998e,#38ef7d)"></div>
+      <div class="bgp" data-i="5" style="background:linear-gradient(160deg,#fc466b,#3f5efb)"></div>
+      <div class="bgp" data-i="6" style="background:linear-gradient(160deg,#232526,#414345)"></div>
+      <div class="bgp" data-i="7" style="background:linear-gradient(160deg,#0f2027,#2c5364)"></div>
+      <div class="bgp" data-i="8" style="background:linear-gradient(160deg,#3d0c02,#8b0000)"></div>
+      <div class="bgp" data-i="9" style="background:linear-gradient(160deg,#134e5e,#71b280)"></div>
+      <div class="bgp" data-i="10" style="background:linear-gradient(160deg,#4facfe,#00f2fe)"></div>
+      <div class="bgp" data-i="11" style="background:linear-gradient(160deg,#f953c6,#b91d73)"></div>
+      <div class="bgp" data-i="12" style="background:linear-gradient(160deg,#1a1a2e,#e94560)"></div>
+      <div class="bgp" data-i="13" style="background:linear-gradient(160deg,#000000,#434343)"></div>
+    </div>
+    <div class="file-row">
+      <button class="file-btn" onclick="document.getElementById('bgimg').click()">Choose files</button>
+      <span class="file-name" id="bgimgName">No file chosen</span>
+      <input type="file" id="bgimg" accept="image/*" style="display:none">
+    </div>
+  </div>
+
+  <!-- LOGO / FACE -->
+  <div class="section">
+    <div class="section-label">Red Circle Image (Logo/Face)</div>
+    <div class="file-row">
+      <button class="file-btn" onclick="document.getElementById('logoImg').click()">Choose file</button>
+      <span class="file-name" id="logoName">No file chosen</span>
+      <input type="file" id="logoImg" accept="image/*" style="display:none">
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;">
+      <span style="font-size:12px;color:var(--muted);">Circle Size</span>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" id="csV" value="200" min="80" max="400" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+        <span style="font-size:11px;color:var(--muted);">px</span>
+      </div>
+    </div>
+    <input type="range" id="circleSize" min="80" max="400" value="200" style="display:none">
+  </div>
+
+  <!-- OUTRO IMAGE -->
+  <div class="section">
+    <div class="section-label">Outro / Watermark Image</div>
+    <div class="file-row">
+      <button class="file-btn" onclick="document.getElementById('outroImg').click()">Choose file</button>
+      <span class="file-name" id="outroName">No file chosen</span>
+      <input type="file" id="outroImg" accept="image/*" style="display:none">
+    </div>
+  </div>
+
+  <!-- SHORTS THEME -->
+  <div class="section">
+    <div class="section-label">Shorts Theme (Layout &amp; Style)</div>
+    <div class="theme-grid">
+      <button class="theme-btn on" data-t="classic">🎬 Classic</button>
+      <button class="theme-btn" data-t="cricket">🏏 Cricket</button>
+      <button class="theme-btn" data-t="bollywood">🎭 Bollywood</button>
+      <button class="theme-btn" data-t="neon">⚡ Neon</button>
+      <button class="theme-btn" data-t="golden">✨ Golden</button>
+      <button class="theme-btn" data-t="study">📚 Study</button>
+      <button class="theme-btn" data-t="meme">😂 Meme Stack</button>
+    </div>
+  </div>
+
+  <!-- MUSIC -->
+  <div class="section">
+    <div class="section-label">🎵 Background Music</div>
+    <div class="file-row">
+      <button class="file-btn" onclick="document.getElementById('musicFile').click()">Choose Music</button>
+      <span class="file-name" id="musicName">No file chosen</span>
+      <input type="file" id="musicFile" accept="audio/*" style="display:none">
+    </div>
+    <div id="musicControls" style="display:none;flex-direction:column;gap:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="musicPlayBtn" class="tbtn" style="font-size:16px;padding:5px 12px;">▶</button>
+        <button id="musicStopBtn" class="tbtn" style="font-size:16px;padding:5px 12px;">⏹</button>
+        <span id="musicStatus" style="font-size:11px;color:var(--muted);">Ready</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--muted);">Music Volume</span>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <input type="number" id="musicVolVal" value="50" min="0" max="100" class="inp" style="width:70px;padding:6px 8px;text-align:center;">
+          <span style="font-size:11px;color:var(--muted);">%</span>
+        </div>
+      </div>
+      <input type="range" id="musicVol" min="0" max="100" value="50" style="display:none">
+      <div class="tog-row">
+        <label class="tog"><input type="checkbox" id="musicLoop" checked><span class="tslide"></span></label>
+        <span style="font-size:12px">Loop Music</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MASTER STUDIO -->
+  <div class="master-studio">
+    <div class="ms-header">
+      <div class="ms-title">Master Studio</div>
+      <div class="ms-icons">
+        <div class="ms-icon" title="Mic">🎙️</div>
+        <div class="ms-icon" title="Music">🎵</div>
+      </div>
+    </div>
+
+    <div class="prog-wrap" id="pgWrap">
+      <div class="prog-bar"><div class="prog-fill" id="pgFill" style="width:0%"></div></div>
+      <div class="prog-txt" id="pgTxt"></div>
+    </div>
+
+    <button class="start-btn" id="startBtn">🎙 START BROADCAST</button>
+    <button class="stop-btn" id="stopBtn">⏹ STOP &amp; SAVE</button>
+    <button class="dl-btn" id="dlBtn">⬇ Download Video</button>
+  </div>
+
+  <div style="height:20px"></div>
+</div>
+
+<script>
+// ── STATE ──
+var S = {
+  title: '',
+  script: '',
+  font: 'Arial',
+  titleSize: 90,
+  scriptSize: 52,
+  lh: 1.35,
+  bold: false,
+  italic: false,
+  underline: false,
+  align: 'left',
+  titleColor: '#ffffff',
+  scriptColor: '#e0e0ff',
+  titlePos: 22,
+  scriptPos: 58,
+  hp: 70,
+  shadow: true,
+  stroke: false,
+  bbox: false,
+  titleBox: false,
+  bgIdx: 0,
+  bgImg: null,
+  logoImg: null,
+  circleSize: 200,
+  outroImg: null,
+  theme: 'classic',
+};
+
+var BG = [
+  [[10,10,26],[26,5,53]],
+  [[255,60,110],[128,0,255]],
+  [[0,198,255],[0,80,255]],
+  [[247,151,30],[255,210,0]],
+  [[17,153,142],[56,239,125]],
+  [[252,70,107],[63,94,251]],
+  [[35,37,38],[65,67,69]],
+  [[15,32,39],[44,83,100]],
+  [[61,12,2],[139,0,0]],
+  [[19,78,94],[113,178,128]],
+  [[79,172,254],[0,242,254]],
+  [[249,83,198],[185,29,115]],
+  [[26,26,46],[233,69,96]],
+  [[0,0,0],[67,67,67]],
+];
+
+// Recording state
+var mediaRec = null;
+var chunks = [];
+var recInterval = null;
+var recSeconds = 0;
+var lastBlob = null;
+
+// Audio state
+var musicBuffer = null;       // decoded AudioBuffer (stays forever)
+var previewAudio = null;      // simple Audio element for preview play/stop only
+var recAudioCtx = null;       // AudioContext used only during recording
+var recMusicNode = null;      // BufferSourceNode during recording
+var recMusicGain = null;      // GainNode during recording
+
+// ── MUSIC SETUP ──
+ge('musicFile').addEventListener('change', function(e){
+  var f = e.target.files[0]; if(!f) return;
+  ge('musicName').textContent = f.name;
+  ge('musicStatus').textContent = 'Loading...';
+
+  // Load into AudioBuffer for recording (always fresh decode)
+  var fr = new FileReader();
+  fr.onload = function(ev) {
+    var tmpCtx = new (window.AudioContext || window.webkitAudioContext)();
+    tmpCtx.decodeAudioData(ev.target.result.slice(0), function(buf) {
+      musicBuffer = buf;
+      tmpCtx.close();
+      ge('musicStatus').textContent = 'Loaded ✓';
+    }, function(err) {
+      ge('musicStatus').textContent = 'Error loading';
+      console.error(err);
+    });
+  };
+  fr.readAsArrayBuffer(f);
+
+  // Also keep a simple Audio element for preview
+  if (previewAudio) { previewAudio.pause(); previewAudio = null; }
+  previewAudio = new Audio(URL.createObjectURL(f));
+  previewAudio.loop = ge('musicLoop').checked;
+  previewAudio.volume = (parseInt(ge('musicVolVal').value)||50) / 100;
+
+  ge('musicControls').style.display = 'flex';
+});
+
+ge('musicPlayBtn').addEventListener('click', function(){
+  if (!previewAudio) return;
+  previewAudio.currentTime = 0;
+  previewAudio.play();
+  ge('musicStatus').textContent = '▶ Playing (preview)';
+});
+ge('musicStopBtn').addEventListener('click', function(){
+  if (!previewAudio) return;
+  previewAudio.pause(); previewAudio.currentTime = 0;
+  ge('musicStatus').textContent = 'Stopped';
+});
+
+ge('musicVol').addEventListener('input', function(){
+  ge('musicVolVal').value = this.value;
+  if (previewAudio) previewAudio.volume = this.value / 100;
+  if (recMusicGain) recMusicGain.gain.value = this.value / 100;
+});
+ge('musicVolVal').addEventListener('input', function(){
+  var v = Math.min(100, Math.max(0, parseInt(this.value)||0));
+  ge('musicVol').value = v;
+  if (previewAudio) previewAudio.volume = v / 100;
+  if (recMusicGain) recMusicGain.gain.value = v / 100;
+});
+ge('musicLoop').addEventListener('change', function(){
+  if (previewAudio) previewAudio.loop = this.checked;
+});
+
+var cv = document.getElementById('previewCanvas');
+var ctx = cv.getContext('2d');
+
+// ── DRAW ──
+function ge(id){ return document.getElementById(id); }
+
+function wrapText(c, txt, maxW) {
+  var lines = [], paras = txt.split('\n');
+  for (var p=0;p<paras.length;p++) {
+    var para = paras[p];
+    if (!para.trim()) { lines.push(''); continue; }
+    var words = para.split(' '), line = '';
+    for (var w=0;w<words.length;w++) {
+      var test = line ? line+' '+words[w] : words[w];
+      if (c.measureText(test).width > maxW && line) { lines.push(line); line=words[w]; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+  }
+  return lines;
+}
+
+function drawRR(c, x, y, w, h, r) {
+  c.beginPath();
+  c.moveTo(x+r,y); c.lineTo(x+w-r,y);
+  c.quadraticCurveTo(x+w,y,x+w,y+r);
+  c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+  c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
+  c.closePath(); c.fill();
+}
+
+function drawTextBlock(c, txt, scX, cW, cH, fs, lh, color, vpos, hp, bold, italic, shadow, stroke, bbox, underline, align) {
+  if (!txt) return;
+  var it = italic?'italic ':'', wt = bold?'bold ':'';
+  c.font = it+wt+(fs*scX)+'px '+S.font+', Arial, sans-serif';
+  c.textBaseline = 'top';
+  var maxW = cW - hp*scX*2;
+  var lines = wrapText(c, txt, maxW);
+  var realFS = fs*scX;
+  var totalH = lines.length * realFS * lh;
+  var startY = cH*(vpos/100) - totalH/2;
+  var hpPx = hp*scX;
+
+  if (bbox && lines.length) {
+    var mw=0;
+    for(var k=0;k<lines.length;k++){var m=c.measureText(lines[k]).width;if(m>mw)mw=m;}
+    var pad=20*scX, bx=hpPx-pad;
+    if(align==='center') bx=(cW-mw)/2-pad;
+    if(align==='right') bx=cW-hpPx-mw-pad;
+    c.fillStyle='rgba(0,0,0,0.6)';
+    drawRR(c,bx,startY-pad/2,mw+pad*2,totalH+pad,12*scX);
+  }
+
+  for (var i=0;i<lines.length;i++) {
+    var line=lines[i];
+    var y=startY+i*realFS*lh;
+    var lw=c.measureText(line).width;
+    var x=hpPx;
+    if(align==='center') x=(cW-lw)/2;
+    if(align==='right') x=cW-hpPx-lw;
+    if(shadow){
+      c.save();
+      c.shadowColor='rgba(0,0,0,0.95)';
+      c.shadowBlur=18*scX;
+      c.shadowOffsetX=3*scX; c.shadowOffsetY=3*scX;
+    }
+    if(stroke){
+      c.strokeStyle='#000'; c.lineWidth=realFS*0.07; c.lineJoin='round';
+      c.strokeText(line,x,y);
+    }
+    c.fillStyle=color; c.fillText(line,x,y);
+    if(shadow) c.restore();
+    if(underline){
+      c.strokeStyle=color; c.lineWidth=Math.max(1,realFS*0.04);
+      c.beginPath(); c.moveTo(x,y+realFS+3*scX); c.lineTo(x+lw,y+realFS+3*scX); c.stroke();
+    }
+  }
+}
+
+function drawScene(c, cW, cH) {
+  c.clearRect(0,0,cW,cH);
+  var scX = cW/1080;
+
+  // BG
+  if (S.bgImg) {
+    c.drawImage(S.bgImg,0,0,cW,cH);
+    c.fillStyle='rgba(0,0,0,0.3)'; c.fillRect(0,0,cW,cH);
+  } else {
+    var col=BG[S.bgIdx], c1=col[0], c2=col[col.length-1];
+    var g=c.createLinearGradient(0,0,cW*0.6,cH);
+    g.addColorStop(0,'rgb('+c1[0]+','+c1[1]+','+c1[2]+')');
+    g.addColorStop(1,'rgb('+c2[0]+','+c2[1]+','+c2[2]+')');
+    c.fillStyle=g; c.fillRect(0,0,cW,cH);
+    // deco circles
+    c.save(); c.globalAlpha=0.06; c.fillStyle='#fff';
+    c.beginPath(); c.arc(cW*0.85,cH*0.1,cW*0.3,0,Math.PI*2); c.fill();
+    c.beginPath(); c.arc(cW*0.08,cH*0.88,cW*0.22,0,Math.PI*2); c.fill();
+    c.restore();
+  }
+
+  // Theme decorations
+  drawThemeDecor(c, cW, cH, scX);
+
+  // Logo/Face circle
+  if (S.logoImg) {
+    var cs = S.circleSize * scX;
+    var cx2 = cW/2, cy2 = cH*0.18;
+    c.save();
+    c.beginPath(); c.arc(cx2,cy2,cs/2,0,Math.PI*2); c.clip();
+    c.drawImage(S.logoImg, cx2-cs/2, cy2-cs/2, cs, cs);
+    c.restore();
+    // red ring
+    c.beginPath(); c.arc(cx2,cy2,cs/2+4*scX,0,Math.PI*2);
+    c.strokeStyle='#e63950'; c.lineWidth=4*scX; c.stroke();
+  }
+
+  // Title
+  if (S.title) {
+    if (S.titleBox) {
+      c.font='bold '+(S.titleSize*scX)+'px '+S.font+', Arial, sans-serif';
+      c.textBaseline='top';
+      var tw=c.measureText(S.title).width;
+      var tx=(cW-tw)/2-20*scX;
+      var ty=cH*(S.titlePos/100)-S.titleSize*scX/2-10*scX;
+      c.fillStyle='rgba(245,197,24,0.2)';
+      drawRR(c,tx,ty,tw+40*scX,S.titleSize*scX+20*scX,8*scX);
+      c.strokeStyle='rgba(245,197,24,0.5)'; c.lineWidth=2*scX;
+      c.beginPath(); drawRR(c,tx,ty,tw+40*scX,S.titleSize*scX+20*scX,8*scX); c.stroke();
+    }
+    drawTextBlock(c, S.title, scX, cW, cH,
+      S.titleSize, 1.1, S.titleColor,
+      S.titlePos, S.hp, S.bold, S.italic,
+      S.shadow, S.stroke, false, S.underline, S.align);
+  }
+
+  // Script
+  drawTextBlock(c, S.script, scX, cW, cH,
+    S.scriptSize, S.lh, S.scriptColor,
+    S.scriptPos, S.hp, false, false,
+    S.shadow, S.stroke, S.bbox, false, S.align);
+
+  // Outro image (bottom right watermark)
+  if (S.outroImg) {
+    var ow=200*scX, oh=100*scX;
+    c.drawImage(S.outroImg, cW-ow-20*scX, cH-oh-20*scX, ow, oh);
+  }
+}
+
+function drawThemeDecor(c, cW, cH, scX) {
+  var t = S.theme;
+  if (t==='neon') {
+    // neon lines
+    c.save(); c.globalAlpha=0.4;
+    var ng=c.createLinearGradient(0,0,cW,0);
+    ng.addColorStop(0,'#39ff14'); ng.addColorStop(1,'#00f3ff');
+    c.strokeStyle=ng; c.lineWidth=3*scX;
+    c.beginPath(); c.moveTo(0,cH*0.05); c.lineTo(cW,cH*0.05); c.stroke();
+    c.beginPath(); c.moveTo(0,cH*0.95); c.lineTo(cW,cH*0.95); c.stroke();
+    c.restore();
+  } else if (t==='cricket') {
+    // pitch lines
+    c.save(); c.globalAlpha=0.15; c.strokeStyle='#fff'; c.lineWidth=2*scX;
+    for(var l=0;l<5;l++){
+      var lx=cW*(0.1+l*0.2);
+      c.beginPath(); c.moveTo(lx,cH*0.3); c.lineTo(lx,cH*0.85); c.stroke();
+    }
+    c.restore();
+  } else if (t==='bollywood') {
+    // sparkles
+    c.save(); c.globalAlpha=0.3; c.fillStyle='#ff4081';
+    var sparks=[[0.1,0.15],[0.9,0.2],[0.05,0.7],[0.92,0.75],[0.5,0.08]];
+    for(var s=0;s<sparks.length;s++){
+      c.beginPath(); c.arc(cW*sparks[s][0],cH*sparks[s][1],8*scX,0,Math.PI*2); c.fill();
+    }
+    c.restore();
+  } else if (t==='golden') {
+    c.save(); c.globalAlpha=0.25;
+    var gg=c.createLinearGradient(0,0,cW,cH);
+    gg.addColorStop(0,'#ffd700'); gg.addColorStop(1,'transparent');
+    c.fillStyle=gg; c.fillRect(0,0,cW,cH*0.15);
+    c.fillRect(0,cH*0.85,cW,cH*0.15);
+    c.restore();
+  }
+}
+
+function renderPreview() {
+  var shell = document.querySelector('.phone-inner');
+  var dpr = window.devicePixelRatio||1;
+  var W = shell.offsetWidth*dpr, H = shell.offsetHeight*dpr;
+  cv.width=W; cv.height=H;
+  cv.style.width=shell.offsetWidth+'px';
+  cv.style.height=shell.offsetHeight+'px';
+  drawScene(ctx, W, H);
+}
+
+// ── RECORDING ──
+var offCanvas = document.createElement('canvas');
+offCanvas.width=1080; offCanvas.height=1920;
+var offCtx = offCanvas.getContext('2d');
+
+function renderFull() { drawScene(offCtx, 1080, 1920); }
+
+function updateTimer() {
+  recSeconds++;
+  var m = Math.floor(recSeconds/60), s = recSeconds%60;
+  ge('timerDisplay').textContent = (m<10?'0':'')+m+':'+(s<10?'0':'')+s;
+}
+
+ge('startBtn').addEventListener('click', async function() {
+  renderFull();
+
+  var types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'];
+  var mime='';
+  for(var t=0;t<types.length;t++){if(MediaRecorder.isTypeSupported(types[t])){mime=types[t];break;}}
+  if(!mime){ alert('Aapka browser recording support nahi karta. Chrome use karein.'); return; }
+
+  // Stop preview music if playing
+  if (previewAudio) { previewAudio.pause(); previewAudio.currentTime = 0; }
+
+  // Fresh AudioContext for this recording session
+  recAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  var recDest = recAudioCtx.createMediaStreamDestination();
+
+  // 1. MIC — ask permission and connect
+  var micStream = null;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
+    var micSrc = recAudioCtx.createMediaStreamSource(micStream);
+    var micGain = recAudioCtx.createGain();
+    micGain.gain.value = 1.0;
+    micSrc.connect(micGain);
+    micGain.connect(recDest);
+    // also hear yourself? comment next line if echo
+    // micGain.connect(recAudioCtx.destination);
+  } catch(e) {
+    console.warn('Mic denied:', e);
+    alert('Mic permission nahi mili! Allow karo phir try karo.\n\nBina mic ke recording nahi hogi.');
+    recAudioCtx.close(); recAudioCtx = null;
+    return;
+  }
+
+  // 2. MUSIC — use AudioBuffer (always fresh, no "already connected" error)
+  if (musicBuffer) {
+    recMusicNode = recAudioCtx.createBufferSource();
+    recMusicNode.buffer = musicBuffer;
+    recMusicNode.loop = ge('musicLoop').checked;
+    recMusicGain = recAudioCtx.createGain();
+    recMusicGain.gain.value = (parseInt(ge('musicVolVal').value)||50) / 100;
+    recMusicNode.connect(recMusicGain);
+    recMusicGain.connect(recDest);            // goes into recording
+    recMusicGain.connect(recAudioCtx.destination); // hear it live too
+    recMusicNode.start(0);
+    ge('musicStatus').textContent = '● Recording...';
+  }
+
+  // 3. Combine canvas video + mixed audio
+  var videoStream = offCanvas.captureStream(30);
+  var combinedStream = new MediaStream([
+    ...videoStream.getVideoTracks(),
+    ...recDest.stream.getAudioTracks()
+  ]);
+
+  chunks = [];
+  mediaRec = new MediaRecorder(combinedStream, { mimeType: mime, videoBitsPerSecond: 8000000 });
+  mediaRec.ondataavailable = function(e){ if(e.data.size>0) chunks.push(e.data); };
+  mediaRec.onstop = function() {
+    lastBlob = new Blob(chunks, { type: 'video/webm' });
+    ge('dlBtn').setAttribute('data-ext', 'webm');
+    ge('dlBtn').classList.add('show');
+    ge('pgWrap').classList.remove('show');
+
+    // Cleanup
+    if (recMusicNode) { try { recMusicNode.stop(); } catch(e){} recMusicNode = null; }
+    if (micStream) micStream.getTracks().forEach(function(t){t.stop();});
+    if (recAudioCtx) { recAudioCtx.close(); recAudioCtx = null; }
+    if (musicBuffer) ge('musicStatus').textContent = 'Loaded ✓';
+  };
+
+  mediaRec.start(100);
+  recSeconds = 0;
+  ge('timerDisplay').textContent = '00:00';
+  ge('recInd').classList.add('show');
+  ge('startBtn').disabled = true;
+  ge('stopBtn').classList.add('show');
+  ge('dlBtn').classList.remove('show');
+
+  recInterval = setInterval(function(){
+    updateTimer();
+    renderFull();
+  }, 1000);
+});
+
+ge('stopBtn').addEventListener('click', function() {
+  if (mediaRec && mediaRec.state!=='inactive') {
+    clearInterval(recInterval);
+    // Stop music node immediately
+    if (recMusicNode) { try { recMusicNode.stop(); } catch(e){} recMusicNode = null; }
+    mediaRec.stop();
+    ge('recInd').classList.remove('show');
+    ge('startBtn').disabled=false;
+    ge('stopBtn').classList.remove('show');
+    ge('pgWrap').classList.add('show');
+    ge('pgTxt').textContent='Video ban rahi hai...';
+    setTimeout(function(){
+      ge('pgWrap').classList.remove('show');
+      ge('pgTxt').textContent='';
+    },1500);
+  }
+});
+
+ge('dlBtn').addEventListener('click', function() {
+  if (!lastBlob) return;
+  var ext = this.getAttribute('data-ext')||'mp4';
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(lastBlob);
+  a.download = 'shorts-'+ Date.now() +'.'+ext;
+  a.click();
+});
+
+// ── WIRE CONTROLS ──
+ge('title').addEventListener('input', function(e){ S.title=e.target.value; renderPreview(); });
+ge('script').addEventListener('input', function(e){ S.script=e.target.value; renderPreview(); });
+
+ge('bB').addEventListener('click', function(){ S.bold=!S.bold; this.classList.toggle('on',S.bold); renderPreview(); });
+ge('bI').addEventListener('click', function(){ S.italic=!S.italic; this.classList.toggle('on',S.italic); renderPreview(); });
+ge('bU').addEventListener('click', function(){ S.underline=!S.underline; this.classList.toggle('on',S.underline); renderPreview(); });
+
+['aL','aC','aR'].forEach(function(id){
+  ge(id).addEventListener('click', function(){
+    ['aL','aC','aR'].forEach(function(x){ ge(x).classList.remove('on'); });
+    ge(id).classList.add('on');
+    S.align=id==='aL'?'left':id==='aC'?'center':'right';
+    renderPreview();
+  });
+});
+
+ge('fnt').addEventListener('change', function(e){ S.font=e.target.value; renderPreview(); });
+
+function wireRange(id, key, displayId, decimals) {
+  var slider = ge(id);
+  var numInput = ge(displayId);
+  // slider → number input
+  slider.addEventListener('input', function(e){
+    S[key]=+e.target.value;
+    numInput.value = decimals ? S[key].toFixed(2) : S[key];
+    renderPreview();
+  });
+  // number input → slider
+  numInput.addEventListener('input', function(e){
+    var v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    v = Math.min(Math.max(v, +slider.min), +slider.max);
+    S[key] = v;
+    slider.value = v;
+    renderPreview();
+  });
+  numInput.addEventListener('change', function(e){
+    var v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    v = Math.min(Math.max(v, +slider.min), +slider.max);
+    S[key] = v;
+    slider.value = v;
+    numInput.value = decimals ? v.toFixed(2) : v;
+    renderPreview();
+  });
+}
+wireRange('titleSize','titleSize','tsV',0);
+wireRange('scriptSize','scriptSize','ssV',0);
+wireRange('lh','lh','lhV',2);
+wireRange('titlePos','titlePos','tpV',0);
+wireRange('scriptPos','scriptPos','spV',0);
+wireRange('hp','hp','hpV',0);
+wireRange('circleSize','circleSize','csV',0);
+
+ge('shad').addEventListener('change',function(e){S.shadow=e.target.checked;renderPreview();});
+ge('strk').addEventListener('change',function(e){S.stroke=e.target.checked;renderPreview();});
+ge('bbox').addEventListener('change',function(e){S.bbox=e.target.checked;renderPreview();});
+ge('titleBox').addEventListener('change',function(e){S.titleBox=e.target.checked;renderPreview();});
+
+// color swatches
+function wireSwatches(groupId, colId, key) {
+  document.querySelectorAll('#'+groupId+' .sw').forEach(function(sw){
+    sw.addEventListener('click', function(){
+      document.querySelectorAll('#'+groupId+' .sw').forEach(function(s){s.classList.remove('on');});
+      sw.classList.add('on');
+      S[key]=sw.dataset.c;
+      ge(colId).value=S[key];
+      renderPreview();
+    });
+  });
+  ge(colId).addEventListener('input', function(e){
+    S[key]=e.target.value;
+    document.querySelectorAll('#'+groupId+' .sw').forEach(function(s){s.classList.remove('on');});
+    renderPreview();
+  });
+}
+wireSwatches('tcSw','tcCol','titleColor');
+wireSwatches('scSw','scCol','scriptColor');
+
+// bg presets
+document.querySelectorAll('.bgp').forEach(function(el){
+  el.addEventListener('click',function(){
+    document.querySelectorAll('.bgp').forEach(function(e){e.classList.remove('on');});
+    el.classList.add('on');
+    S.bgIdx=+el.dataset.i; S.bgImg=null;
+    ge('bgimg').value=''; ge('bgimgName').textContent='No file chosen';
+    renderPreview();
+  });
+});
+
+function wireFileInput(inputId, nameId, key) {
+  ge(inputId).addEventListener('change', function(e){
+    var f=e.target.files[0]; if(!f) return;
+    ge(nameId).textContent=f.name;
+    var img=new Image();
+    img.onload=function(){ S[key]=img; renderPreview(); };
+    img.src=URL.createObjectURL(f);
+    if(key==='bgImg') { document.querySelectorAll('.bgp').forEach(function(el){el.classList.remove('on');}); }
+  });
+}
+wireFileInput('bgimg','bgimgName','bgImg');
+wireFileInput('logoImg','logoName','logoImg');
+wireFileInput('outroImg','outroName','outroImg');
+
+// themes
+document.querySelectorAll('.theme-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.theme-btn').forEach(function(b){b.classList.remove('on');});
+    btn.classList.add('on');
+    S.theme=btn.dataset.t;
+    document.body.className='theme-'+S.theme;
+    renderPreview();
+  });
+});
+
+window.addEventListener('resize', renderPreview);
+renderPreview();
+</script>
+</body>
+</html>
